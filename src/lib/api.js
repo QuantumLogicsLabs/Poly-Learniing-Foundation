@@ -1,7 +1,9 @@
 // Thin fetch wrapper for the Express API.
-// VITE_API_URL points at the deployed backend (e.g. https://plf-api.vercel.app/api);
-// in development it is empty and Vite proxies /api to http://localhost:5000.
-const BASE = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '');
+// VITE_API_URL points at the deployed backend, with or without the /api suffix
+// (e.g. https://plf-api.vercel.app or https://plf-api.vercel.app/api).
+// In development it is empty and Vite proxies /api to http://localhost:5000.
+const RAW = (import.meta.env.VITE_API_URL || '').trim().replace(/^["']+|["']+$/g, '').replace(/\/+$/, '');
+const BASE = !RAW ? '/api' : /\/api$/i.test(RAW) ? RAW : `${RAW}/api`;
 
 export class ApiError extends Error {
   constructor(message, status, details) {
