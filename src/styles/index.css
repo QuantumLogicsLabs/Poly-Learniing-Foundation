@@ -235,9 +235,19 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .film-frame video { width: 100%; height: 100%; object-fit: cover; }
 .film-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; z-index: 3; background: rgba(255, 255, 255, 0.1); }
 .film-progress span { display: block; height: 100%; background: var(--grad); transform: scaleX(0); transform-origin: left; }
+.film-btn {
+  display: inline-flex; align-items: center; gap: 8px; height: 40px; min-width: 40px; padding: 0 12px; justify-content: center;
+  border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.18); background: rgba(7, 10, 20, 0.66); color: #fff;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); cursor: pointer; font-size: 13.5px; font-weight: 600;
+}
+.film-btn:hover { background: rgba(7, 10, 20, 0.85); }
+.film-btn svg { width: 18px; height: 18px; }
+.film-sound { position: absolute; right: 12px; bottom: 14px; z-index: 3; }
 
 @media (max-width: 520px) {
   .hero-actions .btn { flex: 1 1 100%; }
+  .film-btn .label { display: none; }
+  .film-sound { right: 8px; bottom: 10px; }
 }
 
 /* =====================================================================================
