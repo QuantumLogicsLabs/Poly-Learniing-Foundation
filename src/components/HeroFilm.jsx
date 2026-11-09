@@ -20,11 +20,22 @@ const BAR = 2; // s: one bar of the soundtrack (120 BPM). Re-syncs jump whole ba
 const RESYNC = 4; // s: while scrolling, re-sync the music once it is this far from the film
 const FADE_MS = 350;
 
-// Silent encodes with a keyframe every 10 frames, so seeking to any point is instant.
+// Silent encodes with a keyframe every 10 frames, so seeking to any point is instant. Portrait
+// screens (phones, tablets held upright) get the vertical 9:16 cut of the film, which has the
+// same scenes and timing laid out for a tall screen, so it fills the screen like a Short or Reel.
 const SCRUB_SRC = '/media/foundation-film-scrub.mp4';
 const SCRUB_SRC_SMALL = '/media/foundation-film-scrub-720.mp4';
-const MUSIC_SRC = '/media/foundation-film-music.m4a'; // the film's soundtrack, same timeline
+const SCRUB_SRC_VERTICAL = '/media/foundation-film-scrub-vertical.mp4';
+const MUSIC_SRC = '/media/foundation-film-music.m4a'; // the film's soundtrack, same timeline for both cuts
 const POSTER = '/media/foundation-film-poster.jpg'; // the frame at INTRO_END
+const POSTER_VERTICAL = '/media/foundation-film-poster-vertical.jpg';
+const PORTRAIT = '(max-aspect-ratio: 3/4)';
+
+const isPortrait = () => window.matchMedia(PORTRAIT).matches;
+const pickSrc = () => {
+  if (isPortrait()) return SCRUB_SRC_VERTICAL;
+  return window.matchMedia('(max-width: 900px)').matches ? SCRUB_SRC_SMALL : SCRUB_SRC;
+};
 
 const GESTURES = ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'];
 
@@ -56,7 +67,8 @@ function ScrollFilm() {
   const hintRef = useRef(null);
   const toggleSound = useRef(() => {});
   const [audible, setAudible] = useState(false);
-  const [src] = useState(() => (window.matchMedia('(max-width: 900px)').matches ? SCRUB_SRC_SMALL : SCRUB_SRC));
+  const [src, setSrc] = useState(pickSrc);
+  const vertical = src === SCRUB_SRC_VERTICAL;
 
   // Float the navbar over the page and hide it while the film covers the screen. A layout
   // effect, so the navbar never flashes in on first paint.
@@ -79,6 +91,7 @@ function ScrollFilm() {
     let shown = 0; // where the playhead is easing to, in seconds
     let lastShown = 0;
     let span = 1; // px of scrolling that runs the film from INTRO_END to FILM_END
+    let lastP = 0; // scroll progress through the hero on the last frame, 0-1
     let covering = true;
     let raf = 0;
 
@@ -160,7 +173,13 @@ function ScrollFilm() {
 
     // ---------- Scroll-driven playhead ----------
     const measure = () => {
+      const old = span;
       span = Math.max(1, track.offsetHeight - stage.offsetHeight);
+      // Rotating the device changes how long the hero is. Keep the film at the same moment
+      // instead of letting the old scroll position land somewhere else in it.
+      if (old > 1 && Math.abs(span - old) > 1 && lastP > 0 && lastP < 1) {
+        window.scrollTo(0, track.getBoundingClientRect().top + window.scrollY + lastP * span);
+      }
     };
     const setCovering = (c) => {
       if (c === covering) return;
@@ -179,6 +198,7 @@ function ScrollFilm() {
       raf = requestAnimationFrame(tick);
       const r = track.getBoundingClientRect();
       const p = Math.min(1, Math.max(0, -r.top / span));
+      lastP = p;
       setCovering(r.top <= 1 && r.bottom >= window.innerHeight - 1);
       barRef.current.style.transform = `scaleX(${p})`;
       hintRef.current.classList.toggle('is-hidden', p > 0.01);
@@ -211,9 +231,18 @@ function ScrollFilm() {
 
     v.play().catch(() => {
       // Autoplay blocked (e.g. iOS Low Power Mode): show the logo frame and go straight to scrubbing.
-      v.poster = POSTER;
+      v.poster = isPortrait() ? POSTER_VERTICAL : POSTER;
       endIntro();
     });
+
+    // Rotating the device swaps between the vertical and widescreen cuts. The loop then seeks
+    // the new video to the same moment once it has loaded.
+    const orientation = window.matchMedia(PORTRAIT);
+    const onRotate = () => {
+      endIntro();
+      setSrc(pickSrc());
+    };
+    orientation.addEventListener('change', onRotate);
 
     // Some mobile browsers only load video data after a tap; use the first one to load it.
     const prime = () => {
@@ -228,6 +257,7 @@ function ScrollFilm() {
       io.disconnect();
       soundIo.disconnect();
       a.pause();
+      orientation.removeEventListener('change', onRotate);
       window.removeEventListener('resize', measure);
       GESTURES.forEach((g) => window.removeEventListener(g, onGesture));
       primeEvents.forEach((g) => window.removeEventListener(g, prime));
@@ -236,7 +266,7 @@ function ScrollFilm() {
 
   return (
     <div className="scrub" ref={trackRef}>
-      <div className="scrub-stage" ref={stageRef}>
+      <div className={`scrub-stage${vertical ? ' is-vertical' : ''}`} ref={stageRef}>
         <video ref={videoRef} src={src} muted playsInline preload="auto" aria-label={`${LABEL} Scroll down to move through the film.`} />
         <audio ref={audioRef} src={MUSIC_SRC} preload="auto" />
         <button type="button" className="film-sound" onClick={() => toggleSound.current()} aria-label={audible ? 'Mute' : 'Turn sound on'}>
