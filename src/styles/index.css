@@ -189,26 +189,38 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .hero .glow-cyan { width: 900px; height: 900px; left: 50%; margin-left: -450px; top: 380px; }
 .hero-actions { margin-top: 32px; display: flex; flex-wrap: wrap; gap: 12px; }
 
-/* Scroll-driven film: .scrub is a tall track; .scrub-stage pins under the navbar for its whole
-   height, and scrolling through the extra --scrub-distance runs the film from start to end. */
-.scrub {
-  --stage-h: calc(100vh - var(--nav-h));
-  --scrub-distance: 400vh;
-  --pad-top: clamp(16px, 3vh, 36px);
-  --pad-bottom: clamp(56px, 9vh, 88px);
-  position: relative;
-  height: calc(var(--stage-h) + var(--scrub-distance));
-}
+/* Home: the film fills the screen, so the navbar floats over the page and slides away while the
+   film covers the screen (HeroFilm toggles these classes). It still slides in on keyboard focus. */
+.film-hero .nav { position: fixed; top: 0; left: 0; right: 0; transition: transform 0.35s ease; }
+.film-covering .nav:not(:focus-within) { transform: translateY(-100%); }
+
+/* Scroll-driven film: .scrub is a tall track; .scrub-stage fills the screen and stays pinned for
+   the track's whole height, and scrolling through the extra --scrub-distance runs the film. */
+.scrub { --stage-h: 100vh; --scrub-distance: 400vh; position: relative; height: calc(var(--stage-h) + var(--scrub-distance)); }
 @supports (height: 100svh) {
-  .scrub { --stage-h: calc(100svh - var(--nav-h)); --scrub-distance: 400svh; }
+  .scrub { --stage-h: 100svh; --scrub-distance: 400svh; }
 }
-.scrub-stage {
-  position: sticky; top: var(--nav-h); height: var(--stage-h); overflow: hidden;
-  display: grid; place-items: center; padding: var(--pad-top) var(--gutter) var(--pad-bottom);
+/* The background matches the film's own edge colours, so any area around the picture blends in. */
+.scrub-stage { position: sticky; top: 0; height: var(--stage-h); overflow: hidden; background: linear-gradient(180deg, #0a0d15, #060c16); }
+.scrub-stage video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* Screens narrower than 16:10 (tablets, phones held upright) would crop the film's text off its
+   sides, so there the whole width shows, centred, with its top and bottom edges faded into the background. */
+@media (max-aspect-ratio: 8/5) {
+  .scrub-stage video {
+    inset: 50% 0 auto; height: auto; aspect-ratio: 16 / 9; translate: 0 -50%;
+    -webkit-mask-image: linear-gradient(transparent, #000 15%, #000 85%, transparent);
+            mask-image: linear-gradient(transparent, #000 15%, #000 85%, transparent);
+  }
 }
-.scrub-stage .film-frame { width: min(100%, 1280px, calc((var(--stage-h) - var(--pad-top) - var(--pad-bottom)) * 16 / 9)); }
+.film-sound {
+  position: absolute; right: 20px; bottom: 20px; z-index: 3; width: 44px; height: 44px; display: grid; place-items: center;
+  border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.18); background: rgba(7, 10, 20, 0.55); color: #fff;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); cursor: pointer;
+}
+.film-sound:hover { background: rgba(7, 10, 20, 0.85); }
+.film-sound svg { width: 20px; height: 20px; }
 .scrub-hint { /* mouse outline with a falling dot: "scroll down" */
-  position: absolute; left: 50%; bottom: calc(var(--pad-bottom) / 2 - 19px); width: 24px; height: 38px; margin-left: -12px;
+  position: absolute; left: 50%; bottom: 28px; z-index: 3; width: 24px; height: 38px; margin-left: -12px;
   border-radius: 12px; border: 2px solid rgba(255, 255, 255, 0.45); transition: opacity 0.4s;
 }
 .scrub-hint::before {
@@ -235,19 +247,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .film-frame video { width: 100%; height: 100%; object-fit: cover; }
 .film-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; z-index: 3; background: rgba(255, 255, 255, 0.1); }
 .film-progress span { display: block; height: 100%; background: var(--grad); transform: scaleX(0); transform-origin: left; }
-.film-btn {
-  display: inline-flex; align-items: center; gap: 8px; height: 40px; min-width: 40px; padding: 0 12px; justify-content: center;
-  border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.18); background: rgba(7, 10, 20, 0.66); color: #fff;
-  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); cursor: pointer; font-size: 13.5px; font-weight: 600;
-}
-.film-btn:hover { background: rgba(7, 10, 20, 0.85); }
-.film-btn svg { width: 18px; height: 18px; }
-.film-sound { position: absolute; right: 12px; bottom: 14px; z-index: 3; }
 
 @media (max-width: 520px) {
   .hero-actions .btn { flex: 1 1 100%; }
-  .film-btn .label { display: none; }
-  .film-sound { right: 8px; bottom: 10px; }
+  .film-sound { right: 12px; bottom: 12px; }
 }
 
 /* =====================================================================================
