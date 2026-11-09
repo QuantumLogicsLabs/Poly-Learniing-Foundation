@@ -24,41 +24,13 @@ export default function Home() {
   useTitle();
   const projects = useApi('/projects');
   const roles = useApi('/roles');
-  const roleCount = roles.data?.length;
 
   return (
     <>
-      {/* ---------------- Hero with the foundation film ---------------- */}
+      {/* ---------------- Hero: the foundation film, played by scrolling ---------------- */}
       <section className="hero" aria-labelledby="hero-title">
-        <div className="bg-grid" />
-        <div className="glow glow-gold" />
-        <div className="glow glow-violet" />
-        <div className="glow glow-cyan" />
-        <div className="container hero-stack">
-          <div className="hero-copy">
-            <span className="badge"><Heart /> A non-profit organization</span>
-            <h1 id="hero-title">
-              We don’t find jobs.
-              <br />
-              <span className="grad-text">We invent them.</span>
-            </h1>
-            <p className="hero-lead">
-              <strong>Poly Learning Foundation</strong> builds learning platforms — <strong>PolyCode</strong>, <strong>Digital Logics Studio</strong> and{' '}
-              <strong>Calculus Runtime</strong> — and turns every one of them into new kinds of work that our learners are trained to do.
-            </p>
-            <div className="hero-actions">
-              <Link to="/projects" className="btn btn-primary">Explore our projects <ArrowRight /></Link>
-              <Link to="/get-involved" className="btn btn-ghost">See the jobs we’ve invented</Link>
-            </div>
-          </div>
-          <HeroFilm />
-          <ul className="hero-facts">
-            <li><b>3</b> live learning platforms</li>
-            <li><b>{roleCount ?? 9}</b> new roles invented</li>
-            <li><b>100+</b> courses on PolyCode</li>
-            <li><b>1</b> mission: create work</li>
-          </ul>
-        </div>
+        <h1 id="hero-title" className="visually-hidden">Poly Learning Foundation: we don’t find jobs, we invent them.</h1>
+        <HeroFilm />
       </section>
 
       {/* ---------------- Non-profit pillars ---------------- */}

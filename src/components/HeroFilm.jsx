@@ -1,128 +1,148 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePrefersReducedMotion } from '../lib/hooks';
-import { Expand, Film, Pause, Play, VolumeOff, VolumeOn } from './Icons';
 
-// The foundation film: autoplays muted and looped (like a hero background), with
-// play/pause, sound and fullscreen controls. Respects prefers-reduced-motion and
-// pauses itself while scrolled out of view.
+// The foundation film is the whole home-page hero. It stays pinned under the navbar while
+// the hero scrolls past, and the scroll position drives the playhead: scroll down to move
+// the film forward, scroll up to rewind it. On load it plays the short logo intro once and
+// then waits for the viewer to scroll. Viewers who prefer reduced motion get an ordinary
+// player with controls instead.
+
+const INTRO_END = 3; // s: logo fully assembled. Scrolling starts the film from here.
+const FILM_END = 31; // s: end card fully visible, just before the film fades out.
+const EASE = 0.15; // share of the remaining gap the playhead closes each frame (smooths wheel steps)
+
+// Silent encodes with a keyframe every 10 frames, so seeking to any point is instant.
+const SCRUB_SRC = '/media/foundation-film-scrub.mp4';
+const SCRUB_SRC_SMALL = '/media/foundation-film-scrub-720.mp4';
+const POSTER = '/media/foundation-film-poster.jpg'; // the frame at INTRO_END
+
+const LABEL =
+  'Poly Learning Foundation film. A non-profit organization: most organizations help people find jobs — we invent them. We build free platforms, create new roles and train people for them. Featuring PolyCode, Digital Logics Studio and Calculus Runtime.';
+
 export default function HeroFilm() {
-  const videoRef = useRef(null);
-  const progressRef = useRef(null);
-  const userPaused = useRef(false);
   const reducedMotion = usePrefersReducedMotion();
-  const [playing, setPlaying] = useState(false);
-  const [muted, setMuted] = useState(true);
-  const [started, setStarted] = useState(false);
-  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
+  return reducedMotion ? <PlainFilm /> : <ScrollFilm />;
+}
 
-  // Muted autoplay (the attribute must be present for iOS Safari).
+function Backdrop() {
+  return (
+    <>
+      <div className="bg-grid" />
+      <div className="glow glow-gold" />
+      <div className="glow glow-violet" />
+      <div className="glow glow-cyan" />
+    </>
+  );
+}
+
+function ScrollFilm() {
+  const trackRef = useRef(null);
+  const stageRef = useRef(null);
+  const videoRef = useRef(null);
+  const barRef = useRef(null);
+  const hintRef = useRef(null);
+  const [src] = useState(() => (window.matchMedia('(max-width: 900px)').matches ? SCRUB_SRC_SMALL : SCRUB_SRC));
+
   useEffect(() => {
+    const track = trackRef.current;
+    const stage = stageRef.current;
     const v = videoRef.current;
-    if (!v) return;
     v.muted = true;
-    v.setAttribute('muted', '');
-    if (reducedMotion) return;
-    v.play().catch(() => setAutoplayBlocked(true));
-  }, [reducedMotion]);
+    v.setAttribute('muted', ''); // iOS Safari only allows muted inline playback with the attribute set
 
-  // Pause off-screen to save battery; resume when visible unless the viewer paused it.
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v || !('IntersectionObserver' in window)) return undefined;
-    const io = new IntersectionObserver(([entry]) => {
-      if (!entry.isIntersecting) v.pause();
-      else if (!userPaused.current && !reducedMotion && v.paused && started) v.play().catch(() => {});
-    }, { threshold: 0.25 });
-    io.observe(v);
-    return () => io.disconnect();
-  }, [reducedMotion, started]);
+    let intro = true;
+    let shown = 0; // where the playhead is easing to, in seconds
+    let pinTop = 0; // px from the viewport top where the stage pins (the navbar height)
+    let span = 1; // px of scrolling that runs the film from INTRO_END to FILM_END
+    let raf = 0;
 
-  // Smooth progress bar without re-rendering React every frame.
-  useEffect(() => {
-    let raf;
-    const tick = () => {
-      const v = videoRef.current;
-      if (v && progressRef.current && v.duration) progressRef.current.style.width = `${(v.currentTime / v.duration) * 100}%`;
-      raf = requestAnimationFrame(tick);
+    const measure = () => {
+      pinTop = parseFloat(getComputedStyle(stage).top) || 0;
+      span = Math.max(1, track.offsetHeight - stage.offsetHeight);
     };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+
+    const endIntro = () => {
+      if (!intro) return;
+      intro = false;
+      v.pause();
+      shown = v.currentTime;
+    };
+
+    const tick = () => {
+      raf = requestAnimationFrame(tick);
+      const p = Math.min(1, Math.max(0, (pinTop - track.getBoundingClientRect().top) / span));
+      barRef.current.style.transform = `scaleX(${p})`;
+      hintRef.current.classList.toggle('is-hidden', p > 0.01);
+
+      if (intro) {
+        if (p > 0.002 || v.currentTime >= INTRO_END) endIntro();
+        else return;
+      }
+      const target = INTRO_END + p * (FILM_END - INTRO_END);
+      shown += (target - shown) * EASE;
+      if (Math.abs(target - shown) < 0.005) shown = target;
+      // One seek at a time: while the browser is still seeking, skip and catch up next frame.
+      if (v.readyState >= 1 && !v.seeking && Math.abs(v.currentTime - shown) > 1 / 60) v.currentTime = shown;
+    };
+
+    // Only run the loop while the hero is on screen.
+    const io = new IntersectionObserver(([entry]) => {
+      cancelAnimationFrame(raf);
+      if (entry.isIntersecting) {
+        measure();
+        raf = requestAnimationFrame(tick);
+      }
+    });
+    io.observe(track);
+    window.addEventListener('resize', measure);
+
+    v.play().catch(() => {
+      // Autoplay blocked (e.g. iOS Low Power Mode): show the logo frame and go straight to scrubbing.
+      v.poster = POSTER;
+      endIntro();
+    });
+
+    // Some mobile browsers only load video data after a tap; use the first one to load it.
+    const prime = () => {
+      if (v.readyState < 2) v.play().then(() => { if (!intro) v.pause(); }).catch(() => {});
+    };
+    const gestures = ['pointerdown', 'touchend', 'keydown'];
+    gestures.forEach((g) => window.addEventListener(g, prime, { once: true, passive: true }));
+
+    return () => {
+      cancelAnimationFrame(raf);
+      io.disconnect();
+      window.removeEventListener('resize', measure);
+      gestures.forEach((g) => window.removeEventListener(g, prime));
+    };
   }, []);
 
-  const togglePlay = () => {
-    const v = videoRef.current;
-    if (v.paused) {
-      userPaused.current = false;
-      v.play().catch(() => {});
-    } else {
-      userPaused.current = true;
-      v.pause();
-    }
-  };
-
-  const toggleSound = () => {
-    const v = videoRef.current;
-    v.muted = !v.muted;
-    setMuted(v.muted);
-    if (!v.muted && v.paused) {
-      userPaused.current = false;
-      v.play().catch(() => {});
-    }
-  };
-
-  const fullscreen = () => {
-    const v = videoRef.current;
-    if (v.requestFullscreen) v.requestFullscreen();
-    else if (v.webkitEnterFullscreen) v.webkitEnterFullscreen(); // iOS
-  };
-
   return (
-    <figure className="film">
-      <div className="film-frame">
-        <video
-          ref={videoRef}
-          loop
-          playsInline
-          muted
-          preload="metadata"
-          poster="/media/foundation-film-poster.jpg"
-          aria-label="Poly Learning Foundation film. A non-profit organization: most organizations help people find jobs — we invent them. We build free platforms, create new roles and train people for them. Featuring PolyCode, Digital Logics Studio and Calculus Runtime."
-          onPlay={() => {
-            setPlaying(true);
-            setStarted(true);
-          }}
-          onPause={() => setPlaying(false)}
-          onVolumeChange={(e) => setMuted(e.currentTarget.muted)}
-        >
-          <source src="/media/foundation-film-720.mp4" type="video/mp4" media="(max-width: 900px)" />
-          <source src="/media/foundation-film.mp4" type="video/mp4" />
-        </video>
-
-        {!started && (reducedMotion || autoplayBlocked) && (
-          <button className="film-big-play" onClick={togglePlay} aria-label="Play the foundation film">
-            <span><Play /></span>
-          </button>
-        )}
-
-        <div className={`film-controls${playing ? ' auto-hide' : ''}`}>
-          <button className="film-btn" onClick={togglePlay} aria-label={playing ? 'Pause film' : 'Play film'}>
-            {playing ? <Pause /> : <Play />}
-          </button>
-          <button className="film-btn" onClick={toggleSound} aria-label={muted ? 'Turn sound on' : 'Mute'}>
-            {muted ? <VolumeOff /> : <VolumeOn />}
-            <span className="label">{muted ? 'Sound on' : 'Mute'}</span>
-          </button>
-          <span className="film-spacer" />
-          <button className="film-btn" onClick={fullscreen} aria-label="Watch fullscreen">
-            <Expand />
-          </button>
+    <div className="scrub" ref={trackRef}>
+      <div className="scrub-stage" ref={stageRef}>
+        <Backdrop />
+        <div className="film-frame">
+          <video ref={videoRef} src={src} muted playsInline preload="auto" aria-label={`${LABEL} Scroll down to move through the film.`} />
+          <div className="film-progress" aria-hidden="true"><span ref={barRef} /></div>
         </div>
-        <div className="film-progress" aria-hidden="true"><span ref={progressRef} /></div>
+        <span className="scrub-hint" ref={hintRef} aria-hidden="true" />
       </div>
-      <figcaption className="film-caption">
-        <Film />
-        Our story in 32 seconds — what we do, and the three platforms behind it.
-      </figcaption>
-    </figure>
+    </div>
+  );
+}
+
+function PlainFilm() {
+  return (
+    <div className="hero-plain">
+      <Backdrop />
+      <div className="container">
+        <div className="film-frame">
+          <video controls playsInline preload="metadata" poster={POSTER} aria-label={LABEL}>
+            <source src="/media/foundation-film-720.mp4" type="video/mp4" media="(max-width: 900px)" />
+            <source src="/media/foundation-film.mp4" type="video/mp4" />
+          </video>
+        </div>
+      </div>
+    </div>
   );
 }

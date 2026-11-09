@@ -182,26 +182,46 @@ button, input, select, textarea { font: inherit; color: inherit; }
 /* =====================================================================================
    Hero + film
    ===================================================================================== */
-.hero { position: relative; overflow: hidden; padding-block: clamp(44px, 6vw, 80px) clamp(64px, 8vw, 104px); }
+/* No overflow:hidden on .hero: it would stop the stage inside from pinning (position: sticky). */
+.hero { position: relative; }
 .hero .glow-violet { width: 900px; height: 900px; right: -300px; top: -380px; }
 .hero .glow-gold { width: 700px; height: 700px; left: -320px; top: -120px; }
 .hero .glow-cyan { width: 900px; height: 900px; left: 50%; margin-left: -450px; top: 380px; }
-.hero-stack { position: relative; }
-.hero-copy { max-width: 900px; margin-inline: auto; text-align: center; }
-.hero h1 { font-size: clamp(40px, 6.6vw, 82px); line-height: 1.02; letter-spacing: -0.045em; margin-top: 22px; }
-.hero h1 .grad-text { display: inline-block; padding-bottom: 0.08em; }
-.hero-lead { margin: 22px auto 0; font-size: clamp(16.5px, 1.6vw, 19px); color: var(--muted); max-width: 680px; }
-.hero-lead strong { color: var(--text); font-weight: 600; }
 .hero-actions { margin-top: 32px; display: flex; flex-wrap: wrap; gap: 12px; }
-.hero-copy .hero-actions { justify-content: center; }
-.hero-facts { max-width: 1040px; margin: 36px auto 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-.hero-facts li { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; border-radius: var(--radius); background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); font-size: 13.5px; color: var(--dim); }
-.hero-facts b { font: 700 26px/1.1 var(--font-display); color: var(--text); letter-spacing: -0.02em; }
-@media (max-width: 760px) { .hero-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
-.hero .film { max-width: 1040px; margin: clamp(40px, 5vw, 56px) auto 0; }
-.hero .film-caption { justify-content: center; text-align: center; }
-.film { margin: 0; }
+/* Scroll-driven film: .scrub is a tall track; .scrub-stage pins under the navbar for its whole
+   height, and scrolling through the extra --scrub-distance runs the film from start to end. */
+.scrub {
+  --stage-h: calc(100vh - var(--nav-h));
+  --scrub-distance: 400vh;
+  --pad-top: clamp(16px, 3vh, 36px);
+  --pad-bottom: clamp(56px, 9vh, 88px);
+  position: relative;
+  height: calc(var(--stage-h) + var(--scrub-distance));
+}
+@supports (height: 100svh) {
+  .scrub { --stage-h: calc(100svh - var(--nav-h)); --scrub-distance: 400svh; }
+}
+.scrub-stage {
+  position: sticky; top: var(--nav-h); height: var(--stage-h); overflow: hidden;
+  display: grid; place-items: center; padding: var(--pad-top) var(--gutter) var(--pad-bottom);
+}
+.scrub-stage .film-frame { width: min(100%, 1280px, calc((var(--stage-h) - var(--pad-top) - var(--pad-bottom)) * 16 / 9)); }
+.scrub-hint { /* mouse outline with a falling dot: "scroll down" */
+  position: absolute; left: 50%; bottom: calc(var(--pad-bottom) / 2 - 19px); width: 24px; height: 38px; margin-left: -12px;
+  border-radius: 12px; border: 2px solid rgba(255, 255, 255, 0.45); transition: opacity 0.4s;
+}
+.scrub-hint::before {
+  content: ''; position: absolute; left: 50%; top: 7px; width: 4px; height: 8px; margin-left: -2px; border-radius: 2px;
+  background: #fff; animation: scrub-hint 1.6s ease-in-out infinite;
+}
+.scrub-hint.is-hidden { opacity: 0; }
+@keyframes scrub-hint { 0% { transform: translateY(0); opacity: 1; } 70% { transform: translateY(12px); opacity: 0; } 100% { opacity: 0; } }
+
+/* Reduced-motion fallback: an ordinary player. */
+.hero-plain { position: relative; overflow: hidden; padding-block: clamp(32px, 5vw, 64px); }
+.hero-plain .film-frame { max-width: 1040px; margin-inline: auto; }
+
 .film-frame {
   position: relative; aspect-ratio: 16 / 9; border-radius: 20px; overflow: hidden; background: #05070f;
   border: 1px solid var(--line-strong);
@@ -212,33 +232,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
   background: linear-gradient(135deg, rgba(250, 204, 21, 0.6), rgba(139, 124, 246, 0.35) 45%, rgba(56, 189, 248, 0.6));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
 }
-.film video { width: 100%; height: 100%; object-fit: cover; }
-.film-controls {
-  position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 3; display: flex; align-items: center; gap: 8px;
-  opacity: 1; transition: opacity 0.25s;
-}
-.film-frame:not(:hover):not(:focus-within) .film-controls.auto-hide { opacity: 0; }
-.film-btn {
-  display: inline-flex; align-items: center; gap: 8px; height: 40px; min-width: 40px; padding: 0 12px; justify-content: center;
-  border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.18); background: rgba(7, 10, 20, 0.66); color: #fff;
-  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); cursor: pointer; font-size: 13.5px; font-weight: 600;
-}
-.film-btn:hover { background: rgba(7, 10, 20, 0.85); }
-.film-btn svg { width: 18px; height: 18px; }
-.film-spacer { flex: 1; }
+.film-frame video { width: 100%; height: 100%; object-fit: cover; }
 .film-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; z-index: 3; background: rgba(255, 255, 255, 0.1); }
-.film-progress span { display: block; height: 100%; width: 0; background: var(--grad); }
-.film-caption { margin-top: 14px; display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--dim); }
-.film-caption svg { width: 16px; height: 16px; color: var(--muted); flex: none; }
-.film-big-play {
-  position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; border: 0; background: rgba(7, 10, 20, 0.25); cursor: pointer;
-}
-.film-big-play span { width: 76px; height: 76px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, 0.92); color: var(--bg); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4); }
-.film-big-play svg { width: 30px; height: 30px; margin-left: 4px; }
+.film-progress span { display: block; height: 100%; background: var(--grad); transform: scaleX(0); transform-origin: left; }
 
 @media (max-width: 520px) {
-  .film-caption svg { display: none; }
-  .film-btn .label { display: none; }
   .hero-actions .btn { flex: 1 1 100%; }
 }
 
